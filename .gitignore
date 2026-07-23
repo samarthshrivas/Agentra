@@ -1,0 +1,38 @@
+# ─── Android / Gradle ───────────────────────────────────────
+*.iml
+.idea/
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+*.aab.1
+*.ap_
+*.dex
+*.class
+*.log
+*.hprof
+*.test.ignore
+
+# Kotlin compiler cache
+.kotlin/
+
+# NDK / CMake
+.externalNativeBuild/
+.cxx/
+
+# Android test captures
+captures/
+
+# ─── OS Files ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# ─── Gradle Wrapper (keep wrapper jar & properties, ignore cache) ───
+!gradle/wrapper/gradle-wrapper.jar
+!gradlew
+!gradlew.bat

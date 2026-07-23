@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <issue id="AccidentalFlip" severity="ignore" />
+    <issue id="BackButton" severity="ignore" />
+    <issue id="HandlerLeak" severity="ignore" />
+    
+    <!-- Accessibility service is core to this app's functionality -->
+    <issue id="UseCompatPadding" severity="ignore" />
+    <issue id="CustomAction" severity="ignore" />
+    
+    <!-- Suppress accessibility service warnings - this is a legitimate automation app -->
+    <issue id="SetJavaScriptEnabled" severity="ignore" />
+</lint>
