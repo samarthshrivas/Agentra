@@ -1,0 +1,161 @@
+name: Android CI
+
+on:
+  push:
+    branches: [ master, main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ master, main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false
+  GRADLE_CACHE_KEY: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+
+jobs:
+  ############################################################################
+  # BUILD & TEST
+  ############################################################################
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/master' && github.ref != 'refs/heads/main' }}
+
+      - name: Grant execute permission for Gradlew
+        run: chmod +x gradlew
+
+      - name: Install Android SDK components
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "platform-tools" \
+            2>&1 | tail -5
+
+      - name: Run unit tests
+        run: ./gradlew test --stacktrace --no-daemon
+
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentra-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  ############################################################################
+  # RELEASE (tagged versions only)
+  ############################################################################
+  release:
+    name: Create Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Grant execute permission for Gradlew
+        run: chmod +x gradlew
+
+      - name: Install Android SDK components
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            2>&1 | tail -5
+
+      - name: Assemble release APK
+        run: ./gradlew assembleRelease --stacktrace --no-daemon
+        env:
+          SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+
+      - name: Sign release APK (if keystore provided)
+        if: env.SIGNING_KEYSTORE != ''
+        uses: ilharp/sign-android-release@v1
+        with:
+          releaseDir: app/build/outputs/apk/release
+          signingKey: ${{ secrets.SIGNING_KEYSTORE }}
+          keyAlias: ${{ secrets.SIGNING_KEY_ALIAS }}
+          keyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          storePassword: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          buildToolsVersion: 35.0.0
+
+      - name: Rename APK
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          if [ -f app/build/outputs/apk/release/app-release-unsigned.apk ]; then
+            mv app/build/outputs/apk/release/app-release-unsigned.apk \
+               app/build/outputs/apk/release/agentra-v$VERSION.apk
+          elif [ -f app/build/outputs/apk/release/app-release.apk ]; then
+            mv app/build/outputs/apk/release/app-release.apk \
+               app/build/outputs/apk/release/agentra-v$VERSION.apk
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Agentra ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ## Agentra ${{ github.ref_name }}
+
+            ### 📥 Download
+            - **APK**: `agentra-${{ github.ref_name }}.apk` (attached below)
+
+            ### 🧪 Changes
+            See the [commit history](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}) for full details.
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            app/build/outputs/apk/release/agentra-*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
