@@ -37,3 +37,10 @@ Desktop.ini
 !gradlew
 !gradlew.bat
 nul
+
+# ─── Local project docs (not synced to GitHub) ────────────
+memory.md
+opencode.json
+goal.md
+roadmap.md
+Architecture.md

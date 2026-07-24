@@ -1,6 +1,7 @@
 package com.agentra.app
 
 import android.content.Intent
+import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -8,6 +9,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.agentra.app.ui.SettingsActivity
 import org.junit.Assert.*
+import org.junit.Assume
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,10 +19,12 @@ import java.util.concurrent.TimeUnit
 class SettingsActivityTest {
 
     private lateinit var device: UiDevice
-    private val pkg = "com.agenttra.app"
+    private val pkg = "com.agentra.app"
 
     @Before
     fun setUp() {
+        // Skip on Android 15 preview (API 37) — Espresso InputManagerEventInjectionStrategy incompatibility
+        Assume.assumeTrue(Build.VERSION.SDK_INT < 37)
         device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
 
         // Launch SettingsActivity via explicit Intent

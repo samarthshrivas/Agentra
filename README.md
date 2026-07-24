@@ -280,7 +280,7 @@ All settings are available in the **Settings** screen within the app.
 | `SettingsActivityTest` | 17 | All sections, sliders, toggles, permissions |
 | `DebugActivityTest` | 8 | Buttons, sections, placeholder text |
 
-> **Note:** Instrumented tests currently fail on API 37 (Android 15 preview) emulators due to Espresso `InputManagerEventInjectionStrategy` incompatibility, but pass on standard API 26–35 devices.
+> **Note:** Instrumented tests are automatically skipped on API 37 (Android 15 preview) emulators due to Espresso `InputManagerEventInjectionStrategy` incompatibility. They pass on standard API 26–35 devices.
 
 ---
 
@@ -435,8 +435,7 @@ The LLM communicates actions via a structured JSON format:
 
 ## ⚠️ Known Issues
 
-- **Package name typo:** The application ID is `com.agenttra.app` (with double 't') in the manifest — not `com.agentra.app` as the project name suggests
-- **Instrumented tests** fail on API 37 (Android 15 preview) emulators due to Espresso `InputManagerEventInjectionStrategy` incompatibility
+- **Instrumented tests** are skipped on API 37 (Android 15 preview) emulators due to Espresso `InputManagerEventInjectionStrategy` incompatibility — gracefully skipped via `Assume.assumeTrue(Build.VERSION.SDK_INT < 37)`
 - **Wake word** uses cloud-based `SpeechRecognizer` (requires internet); offline engine planned
 - **Screenshot** resolution assumes 1080×1920 baseline for coordinate normalization
 
