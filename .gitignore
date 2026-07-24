@@ -44,3 +44,6 @@ opencode.json
 goal.md
 roadmap.md
 Architecture.md
+
+# ─── OpenCode (local agent config, not synced) ──────────
+.opencode/
