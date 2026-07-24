@@ -6,6 +6,7 @@
     android:canPerformGestures="true"
     android:canRetrieveWindowContent="true"
     android:canTakeScreenshot="true"
+    android:isAccessibilityTool="true"
     android:description="@string/accessibility_description"
     android:notificationTimeout="100"
     android:settingsActivity="com.agentra.app.ui.SettingsActivity" />

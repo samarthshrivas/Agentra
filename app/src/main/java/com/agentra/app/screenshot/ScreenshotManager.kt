@@ -6,11 +6,13 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.hardware.HardwareBuffer
 import android.os.Build
 import android.view.Display
 import androidx.annotation.RequiresApi
 import com.agentra.app.service.AgentAccessibilityService
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 
 /**
@@ -43,29 +45,59 @@ class ScreenshotManager(private val context: Context) {
 
     @RequiresApi(Build.VERSION_CODES.R)
     private suspend fun takeScreenshotInternal(service: AccessibilityService): Bitmap? {
+        val executor = Executors.newSingleThreadExecutor()
         return suspendCancellableCoroutine { cont ->
-            service.takeScreenshot(
-                Display.DEFAULT_DISPLAY,
-                context.mainExecutor,
-                object : AccessibilityService.TakeScreenshotCallback {
-                    override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
-                        if (cont.isActive) {
-                            // Extract bitmap via reflection for cross-API compatibility
-                            val bitmap = try {
-                                val m = screenshot::class.java.getMethod("getBitmap")
-                                m.invoke(screenshot) as? Bitmap
-                            } catch (_: Exception) {
-                                null
+            cont.invokeOnCancellation { executor.shutdownNow() }
+            try {
+                service.takeScreenshot(
+                    Display.DEFAULT_DISPLAY,
+                    executor,
+                    object : AccessibilityService.TakeScreenshotCallback {
+                        override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
+                            try {
+                                val bitmap = if (Build.VERSION.SDK_INT >= 37) {
+                                    // API 37+: ScreenshotResult exposes hardwareBuffer + colorSpace
+                                    // Use Bitmap.wrapHardwareBuffer() to convert (available since API 26)
+                                    val hardwareBuffer: HardwareBuffer = screenshot.hardwareBuffer
+                                    val colorSpace = screenshot.colorSpace
+                                    try {
+                                        Bitmap.wrapHardwareBuffer(hardwareBuffer, colorSpace)
+                                    } finally {
+                                        // CRITICAL: Close HardwareBuffer to prevent graphics memory leak.
+                                        // Android 17 (API 37) has aggressive ART garbage collection and
+                                        // unclosed buffers trigger system-enforced app termination.
+                                        hardwareBuffer.close()
+                                    }
+                                } else {
+                                    // API 30-36: Use reflection for getBitmap() cross-compat
+                                    try {
+                                        val m = screenshot::class.java.getMethod("getBitmap")
+                                        m.invoke(screenshot) as? Bitmap
+                                    } catch (_: Exception) {
+                                        null
+                                    }
+                                }
+                                if (cont.isActive) cont.resume(bitmap)
+                            } catch (e: Exception) {
+                                if (cont.isActive) cont.resume(null)
+                            } finally {
+                                executor.shutdown()
                             }
-                            cont.resume(bitmap)
+                        }
+
+                        override fun onFailure(errorCode: Int) {
+                            if (cont.isActive) cont.resume(null)
+                            executor.shutdown()
                         }
                     }
-
-                    override fun onFailure(errorCode: Int) {
-                        if (cont.isActive) cont.resume(null)
-                    }
-                }
-            )
+                )
+            } catch (e: Exception) {
+                // takeScreenshot() can throw SecurityException synchronously if the
+                // accessibility service's screenshot capability is blocked by the OS
+                // (e.g. misconfigured manifest flags like missing isAccessibilityTool on API 37).
+                if (cont.isActive) cont.resume(null)
+                executor.shutdown()
+            }
         }
     }
 

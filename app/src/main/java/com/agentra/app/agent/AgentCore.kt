@@ -25,7 +25,9 @@ class AgentCore(private val context: Context, private val screenshotManager: Scr
     private var isRunning = false
     private val llm = LLMInterface(config)
     private val actionPlanner = ActionPlanner()
-    private val actionExecutor = ActionExecutor(context)
+    private val actionExecutor = ActionExecutor(context).also {
+        accessibilityService?.let { service -> it.setAccessibilityService(service) }
+    }
     private val actionHistory = mutableListOf<ActionHistoryEntry>()
     private var consecutiveFailures = 0
     private val scope = CoroutineScope(Dispatchers.Main + Job())
