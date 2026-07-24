@@ -20,4 +20,43 @@
     <string name="max_tokens">Max Tokens</string>
     <string name="save_settings">Save</string>
     <string name="clear_logs">Clear</string>
+
+    <!-- Assistant & Wake Word -->
+    <string name="assistant_section_title">Assistant &amp; Wake Word</string>
+    <string name="wake_word_label">Wake Word Detection</string>
+    <string name="wake_word_summary">Listen for \"%s\" to trigger assistant</string>
+    <string name="wake_word_phrase_label">Wake Word Phrase</string>
+    <string name="wake_word_phrase_hint">e.g. Hey Agentra</string>
+    <string name="wake_word_listening">Listening for \"%s\"</string>
+    <string name="wake_word_disabled">Wake word off</string>
+    <string name="default_assistant_label">Default Assistant</string>
+    <string name="default_assistant_summary">Set Agentra as the system default digital assistant</string>
+    <string name="default_assistant_action">Open Assistant Settings</string>
+    <string name="default_assistant_instructions">Go to Settings → Apps → Default apps → Digital assistant app → Agentra</string>
+    <string name="record_audio_permission_label">Microphone Permission</string>
+    <string name="record_audio_permission_summary">Required for wake word detection</string>
+
+    <!-- Test Tools -->
+    <string name="test_tools_title">Test Tools</string>
+    <string name="test_tools_description">Enable or disable individual agent tools and test them in isolation.</string>
+    <string name="test_tools_label">Test Tools</string>
+    <string name="test_tools_summary">Configure and test agent actions individually</string>
+    <string name="test_tool">Test</string>
+    <string name="testing">Testing…</string>
+    <string name="test_success">✓ Success</string>
+    <string name="test_failed">✗ Failed: %s</string>
+    <string name="reset_all">Reset All</string>
+    <string name="tools_reset">All tools have been re-enabled</string>
+
+    <!-- Floating Button Overlay -->
+    <string name="floating_button_label">Floating Button</string>
+    <string name="floating_button_summary">Show a floating button on screen for quick task entry</string>
+    <string name="floating_button_title">Quick Task Entry</string>
+    <string name="floating_button_hint">Enter a task for the agent…</string>
+    <string name="floating_button_execute">Execute</string>
+    <string name="floating_channel_name">Floating Button</string>
+    <string name="floating_channel_description">Floating quick-task button service</string>
+    <string name="floating_notification_text">Floating button active</string>
+    <string name="system_alert_window_permission">Floating Button Overlay</string>
+    <string name="system_alert_window_summary">Required to show the floating prompt button</string>
 </resources>

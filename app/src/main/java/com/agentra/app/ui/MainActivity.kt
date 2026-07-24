@@ -3,12 +3,10 @@ package com.agentra.app.ui
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
 import android.content.Intent
-import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
 import android.view.accessibility.AccessibilityManager
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
@@ -18,8 +16,11 @@ import com.agentra.app.agent.AgentCore
 import com.agentra.app.config.AppConfig
 import com.agentra.app.databinding.ActivityMainBinding
 import com.agentra.app.screenshot.ScreenshotManager
+import com.agentra.app.service.AgentAccessibilityService
 import com.agentra.app.ui.adapter.LogAdapter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
@@ -29,16 +30,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var agentCore: AgentCore
     private lateinit var screenshotManager: ScreenshotManager
 
-    private val screenCaptureLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == RESULT_OK && result.data != null) {
-            screenshotManager.startCapture(result.resultCode, result.data!!)
-            updateScreenCaptureStatus(true)
-            addLog("Screen capture permission granted", LogAdapter.LogType.INFO)
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -46,10 +37,43 @@ class MainActivity : AppCompatActivity() {
 
         config = AppConfig(this)
         screenshotManager = ScreenshotManager(this)
-        agentCore = AgentCore(this, screenshotManager, config)
+        agentCore = AgentCore(this, screenshotManager, config, AgentAccessibilityService.instance)
 
         setupUI()
-        checkPermissions()
+        checkAccessibility()
+        handleLaunchIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleLaunchIntent(intent)
+    }
+
+    /**
+     * Handles being launched from WakeWordService or AssistantService.
+     */
+    private fun handleLaunchIntent(intent: Intent?) {
+        if (intent == null) return
+
+        // Launched by wake word detection
+        if (intent.getBooleanExtra("wake_word_triggered", false)) {
+            val voiceInput = intent.getStringExtra("voice_input") ?: ""
+            addLog("Wake word detected! Voice input: \"$voiceInput\"", LogAdapter.LogType.AGENT)
+            binding.etCommand.setText(voiceInput)
+        }
+
+        // Launched by system assistant (home button long-press)
+        if (intent.getBooleanExtra("assistant_triggered", false)) {
+            addLog("Assistant triggered by system gesture", LogAdapter.LogType.INFO)
+        }
+
+        // Launched by floating button overlay
+        val floatingPrompt = intent.getStringExtra("floating_prompt")
+        if (!floatingPrompt.isNullOrBlank()) {
+            addLog("Quick task: \"$floatingPrompt\"", LogAdapter.LogType.USER)
+            binding.etCommand.setText(floatingPrompt)
+            executeCommand()
+        }
     }
 
     private fun setupUI() {
@@ -94,11 +118,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        if (!screenshotManager.isCaptureActive()) {
-            requestScreenCapture()
-            return
-        }
-
         updateStatus(true)
         addLog("Executing: $command", LogAdapter.LogType.USER)
 
@@ -128,9 +147,10 @@ class MainActivity : AppCompatActivity() {
         binding.rvLogs.smoothScrollToPosition(logAdapter.itemCount - 1)
     }
 
-    private fun checkPermissions() {
-        updateAccessibilityStatus(isAccessibilityEnabled())
-        updateScreenCaptureStatus(screenshotManager.isCaptureActive())
+    private fun checkAccessibility() {
+        if (isAccessibilityEnabled()) {
+            addLog("Accessibility service enabled", LogAdapter.LogType.INFO)
+        }
     }
 
     private fun isAccessibilityEnabled(): Boolean {
@@ -139,25 +159,8 @@ class MainActivity : AppCompatActivity() {
         return enabledServices.any { it.id.contains(packageName) }
     }
 
-    private fun updateAccessibilityStatus(enabled: Boolean) {
-        if (enabled) {
-            addLog("Accessibility service enabled", LogAdapter.LogType.INFO)
-        }
-    }
-
-    private fun updateScreenCaptureStatus(granted: Boolean) {
-        if (granted) {
-            addLog("Screen capture ready", LogAdapter.LogType.INFO)
-        }
-    }
-
-    private fun requestScreenCapture() {
-        val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        screenCaptureLauncher.launch(mpm.createScreenCaptureIntent())
-    }
-
     override fun onResume() {
         super.onResume()
-        checkPermissions()
+        checkAccessibility()
     }
 }

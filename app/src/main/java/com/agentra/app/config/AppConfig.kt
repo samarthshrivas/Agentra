@@ -33,6 +33,22 @@ class AppConfig(context: Context) {
         get() = prefs.getLong(KEY_EXECUTION_DELAY, 500L)
         set(value) = prefs.edit().putLong(KEY_EXECUTION_DELAY, value).apply()
 
+    // ─── Wake Word Configuration ───
+
+    var isWakeWordEnabled: Boolean
+        get() = prefs.getBoolean(KEY_WAKE_WORD_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_WAKE_WORD_ENABLED, value).apply()
+
+    var wakeWordPhrase: String
+        get() = prefs.getString(KEY_WAKE_WORD_PHRASE, "Hey Agentra") ?: "Hey Agentra"
+        set(value) = prefs.edit().putString(KEY_WAKE_WORD_PHRASE, value).apply()
+
+    // ─── Floating Button Configuration ───
+
+    var isFloatingButtonEnabled: Boolean
+        get() = prefs.getBoolean(KEY_FLOATING_BUTTON_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_FLOATING_BUTTON_ENABLED, value).apply()
+
     fun save() {
         prefs.edit().apply()
     }
@@ -63,5 +79,12 @@ class AppConfig(context: Context) {
         private const val KEY_TEMPERATURE = "temperature"
         private const val KEY_MAX_TOKENS = "max_tokens"
         private const val KEY_EXECUTION_DELAY = "execution_delay"
+
+        // Wake word keys
+        private const val KEY_WAKE_WORD_ENABLED = "wake_word_enabled"
+        private const val KEY_WAKE_WORD_PHRASE = "wake_word_phrase"
+
+        // Floating button keys
+        private const val KEY_FLOATING_BUTTON_ENABLED = "floating_button_enabled"
     }
 }

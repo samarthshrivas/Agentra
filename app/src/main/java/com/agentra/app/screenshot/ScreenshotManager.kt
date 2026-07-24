@@ -1,107 +1,88 @@
 package com.agentra.app.screenshot
 
+import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.media.projection.MediaProjection
-import android.media.projection.MediaProjectionManager
-import android.view.WindowManager
+import android.os.Build
+import android.view.Display
+import androidx.annotation.RequiresApi
+import com.agentra.app.service.AgentAccessibilityService
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
+/**
+ * Captures screenshots using [AccessibilityService.takeScreenshot] (Android 11+).
+ *
+ * No MediaProjection permission dialog needed — the accessibility service
+ * can capture the screen silently. Falls back to a placeholder bitmap
+ * on API < 30 or when the accessibility service is not connected.
+ */
 class ScreenshotManager(private val context: Context) {
-    private var mediaProjection: MediaProjection? = null
-    private var isActive = false
-    private var hasPermission = false
 
-    fun startCapture(resultCode: Int, data: android.content.Intent) {
-        val mpm = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        mediaProjection = mpm.getMediaProjection(resultCode, data)
-        isActive = true
-        hasPermission = true
+    /** Returns true if the accessibility service is connected and screenshots can be taken. */
+    fun isCaptureActive(): Boolean = AgentAccessibilityService.instance != null
+
+    /**
+     * Captures a screenshot via the accessibility service API.
+     *
+     * This is a suspend function that waits for the async callback from
+     * [AccessibilityService.takeScreenshot].
+     */
+    suspend fun captureScreen(): Bitmap? {
+        val service = AgentAccessibilityService.instance ?: return createPlaceholder("No accessibility service")
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return createPlaceholder("Screen capture requires Android 11+")
+        }
+
+        return takeScreenshotInternal(service)
     }
 
-    fun hasPermissionGranted(): Boolean = hasPermission
+    @RequiresApi(Build.VERSION_CODES.R)
+    private suspend fun takeScreenshotInternal(service: AccessibilityService): Bitmap? {
+        return suspendCancellableCoroutine { cont ->
+            service.takeScreenshot(
+                Display.DEFAULT_DISPLAY,
+                context.mainExecutor,
+                object : AccessibilityService.TakeScreenshotCallback {
+                    override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
+                        if (cont.isActive) {
+                            // Extract bitmap via reflection for cross-API compatibility
+                            val bitmap = try {
+                                val m = screenshot::class.java.getMethod("getBitmap")
+                                m.invoke(screenshot) as? Bitmap
+                            } catch (_: Exception) {
+                                null
+                            }
+                            cont.resume(bitmap)
+                        }
+                    }
 
-    fun captureScreen(): Bitmap? {
-        if (!isActive || mediaProjection == null) return createPlaceholderBitmap()
-
-        return try {
-            val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-            @Suppress("DEPRECATION")
-            val display = wm.defaultDisplay
-            val dm = context.resources.displayMetrics
-            val width = dm.widthPixels
-            val height = dm.heightPixels
-
-            // Use MediaProjection to capture
-            val reader = android.media.ImageReader.newInstance(width, height, android.graphics.PixelFormat.RGBA_8888, 2)
-
-            val callback = object : MediaProjection.Callback() {}
-            mediaProjection?.registerCallback(callback, null)
-
-            @Suppress("DEPRECATION")
-            val virtualDisplay = mediaProjection?.createVirtualDisplay(
-                "Agentra", width, height, dm.densityDpi,
-                display.flags, reader.surface, null, null
+                    override fun onFailure(errorCode: Int) {
+                        if (cont.isActive) cont.resume(null)
+                    }
+                }
             )
-
-            var bitmap: Bitmap? = null
-            val image = reader.acquireLatestImage()
-
-            if (image != null) {
-                val planes = image.planes
-                val buffer = planes[0].buffer
-                val pixelStride = planes[0].pixelStride
-                val rowStride = planes[0].rowStride
-                val rowPadding = rowStride - pixelStride * width
-
-                bitmap = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888)
-                bitmap?.copyPixelsFromBuffer(buffer)
-                bitmap = bitmap?.let { Bitmap.createBitmap(it, 0, 0, width, height) }
-                image.close()
-            }
-
-            reader.close()
-            virtualDisplay?.release()
-            bitmap ?: createPlaceholderBitmap()
-        } catch (e: Exception) {
-            e.printStackTrace()
-            createPlaceholderBitmap()
         }
     }
 
-    private fun createPlaceholderBitmap(): Bitmap {
+    private fun createPlaceholder(message: String): Bitmap {
         val dm = context.resources.displayMetrics
         val width = dm.widthPixels.coerceAtLeast(1080)
         val height = dm.heightPixels.coerceAtLeast(1920)
-
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        canvas.drawColor(android.graphics.Color.DKGRAY)
-
+        canvas.drawColor(Color.DKGRAY)
         val paint = Paint().apply {
-            color = android.graphics.Color.WHITE
+            color = Color.WHITE
             textSize = 48f
             textAlign = Paint.Align.CENTER
         }
-
         canvas.drawText("Agentra - Screen Capture", width / 2f, height / 2f, paint)
-        canvas.drawText("Enable screen capture to continue", width / 2f, height / 2f + 80, paint)
-
+        canvas.drawText(message, width / 2f, height / 2f + 80, paint)
         return bitmap
-    }
-
-    fun isCaptureActive(): Boolean = isActive
-
-    fun stopCapture() {
-        try {
-            mediaProjection?.stop()
-        } catch (e: Exception) {
-            // Ignore
-        }
-        mediaProjection = null
-        isActive = false
-        hasPermission = false
     }
 }

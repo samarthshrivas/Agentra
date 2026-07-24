@@ -6,8 +6,11 @@ import android.util.Base64
 import com.agentra.app.action.ActionExecutor
 import com.agentra.app.action.ActionPlanner
 import com.agentra.app.config.AppConfig
+import com.agentra.app.hierarchy.HierarchyDumper
+import com.agentra.app.hierarchy.NotificationReader
 import com.agentra.app.llm.LLMInterface
 import com.agentra.app.screenshot.ScreenshotManager
+import com.agentra.app.service.AgentAccessibilityService
 import com.agentra.app.ui.adapter.LogAdapter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 
-class AgentCore(private val context: Context, private val screenshotManager: ScreenshotManager, private val config: AppConfig) {
+class AgentCore(private val context: Context, private val screenshotManager: ScreenshotManager, private val config: AppConfig, private val accessibilityService: AgentAccessibilityService? = null) {
     private var isRunning = false
     private val llm = LLMInterface(config)
     private val actionPlanner = ActionPlanner()
@@ -36,12 +39,19 @@ class AgentCore(private val context: Context, private val screenshotManager: Scr
         while (isRunning) {
             if (!checkPreconditions(onLog)) break
             onLog("Taking screenshot...", LogAdapter.LogType.INFO)
-            val screenshot = screenshotManager.captureScreen()
+            val screenshot = withContext(Dispatchers.IO) { screenshotManager.captureScreen() }
             if (screenshot == null) { onLog("Failed to capture screenshot", LogAdapter.LogType.ERROR); break }
             val screenshotBase64 = bitmapToBase64(screenshot); screenshot.recycle()
             onLog("Analyzing screen (${actionHistory.size + 1} steps)...", LogAdapter.LogType.AGENT)
 
-            val response = withContext(Dispatchers.IO) { llm.sendMessage(command, screenshotBase64, buildActionHistory()) }
+            val hierarchyDump = withContext(Dispatchers.IO) {
+                accessibilityService?.let { HierarchyDumper.dumpInteractive(it.rootInActiveWindow) } ?: ""
+            }
+            val notifications = withContext(Dispatchers.IO) {
+                NotificationReader.getNotificationsText()
+            }
+
+            val response = withContext(Dispatchers.IO) { llm.sendMessage(command, screenshotBase64, buildActionHistory(), hierarchyDump, notifications) }
             if (response == null) { onLog("LLM request failed", LogAdapter.LogType.ERROR); break }
 
             val actions = actionPlanner.parseActions(response)

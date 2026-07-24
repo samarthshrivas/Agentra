@@ -39,6 +39,13 @@ class ActionExecutor(private val context: Context) {
                 (action.params["x2_abs"] as? Int) ?: 0,
                 (action.params["y2_abs"] as? Int) ?: 0
             )
+            ActionType.DRAG -> executeDrag(
+                (action.params["x1_abs"] as? Int) ?: 0,
+                (action.params["y1_abs"] as? Int) ?: 0,
+                (action.params["x2_abs"] as? Int) ?: 0,
+                (action.params["y2_abs"] as? Int) ?: 0,
+                action.duration ?: 1000
+            )
             ActionType.TYPE -> executeType(action.text ?: "")
             ActionType.PRESS -> executePress(action.key ?: "back")
             ActionType.LAUNCH -> executeLaunch(action.packageName ?: "")
@@ -87,6 +94,11 @@ class ActionExecutor(private val context: Context) {
     private fun executeSwipe(x1: Int, y1: Int, x2: Int, y2: Int): ExecutionResult {
         val path = Path().apply { moveTo(x1.toFloat(), y1.toFloat()); lineTo(x2.toFloat(), y2.toFloat()) }
         return executePath(path, 400)
+    }
+
+    private fun executeDrag(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int = 1000): ExecutionResult {
+        val path = Path().apply { moveTo(x1.toFloat(), y1.toFloat()); lineTo(x2.toFloat(), y2.toFloat()) }
+        return executePath(path, durationMs.toLong())
     }
 
     private fun executeType(text: String): ExecutionResult = accessibilityService?.let { ExecutionResult(true, "Typed: $text") } ?: ExecutionResult(false, "Service unavailable")
@@ -182,5 +194,5 @@ class ActionExecutor(private val context: Context) {
 
     data class ExecutionResult(val success: Boolean, val message: String = "", val requiresUserInput: Boolean = false)
     data class Action(val type: ActionType, val x: Int? = null, val y: Int? = null, val normalizedX: Float? = null, val normalizedY: Float? = null, val text: String? = null, val key: String? = null, val packageName: String? = null, val duration: Int? = null, val direction: String? = null, val params: Map<String, Any?> = emptyMap())
-    enum class ActionType { TAP, DOUBLE_TAP, LONG_PRESS, SWIPE, TYPE, PRESS, LAUNCH, WAIT, SCROLL, HOVER, SELECT_TEXT, COPY, FINISHED, CALL_USER }
+    enum class ActionType { TAP, DOUBLE_TAP, LONG_PRESS, SWIPE, DRAG, TYPE, PRESS, LAUNCH, WAIT, SCROLL, HOVER, SELECT_TEXT, COPY, FINISHED, CALL_USER }
 }

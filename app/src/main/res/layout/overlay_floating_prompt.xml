@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/overlayRoot"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal">
+
+    <!-- Collapsed: floating action button -->
+    <ImageView
+        android:id="@+id/floatingBtn"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:src="@android:drawable/ic_menu_compass"
+        android:contentDescription="Open agent prompt"
+        android:background="@drawable/ic_action_circle"
+        android:padding="12dp"
+        android:visibility="visible"
+        android:elevation="8dp"
+        android:clickable="true"
+        android:focusable="true" />
+
+    <!-- Expanded: input panel (initially hidden) -->
+    <LinearLayout
+        android:id="@+id/inputPanel"
+        android:layout_width="280dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:background="@color/surface"
+        android:elevation="8dp"
+        android:padding="16dp">
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilPrompt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/Widget.Agentra.TextInput"
+            android:hint="@string/floating_button_hint">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etPrompt"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textMultiLine"
+                android:maxLines="3"
+                android:minLines="2"
+                android:textColor="@color/on_surface"
+                android:textColorHint="@color/on_surface_variant"
+                android:textSize="14sp" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal"
+            android:gravity="end">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCancelOverlay"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="8dp"
+                android:text="Cancel"
+                android:textSize="13sp"
+                style="@style/Widget.Agentra.Button.Secondary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSubmitOverlay"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="@string/floating_button_execute"
+                android:textSize="13sp"
+                style="@style/Widget.Agentra.Button.Primary" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

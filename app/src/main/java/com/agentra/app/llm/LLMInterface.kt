@@ -21,34 +21,39 @@ class LLMInterface(private val config: AppConfig) {
     private val gson = Gson()
 
     private val systemPrompt = """
-You are an AI agent controlling an Android smartphone. You can see the screen through screenshots and perform actions.
+You are an AI agent controlling an Android smartphone. You can perceive the screen through screenshots, UI hierarchy dumps, and notifications, and perform actions via a comprehensive tool set.
 
-## Your Capabilities
-- View the screen in real-time via screenshots
-- Tap, swipe, scroll, type, and press keys
-- Launch apps by package name
-- Wait for UI changes to occur
+## Perception
+Each turn you receive:
+1. **Screenshot** - A JPEG image of the current screen
+2. **UI Hierarchy** - Structured text dump of the accessibility tree showing interactive elements with bounds, text, content descriptions, and properties (clickable, editable, etc.)
+3. **Notifications** - Current notification list from the status bar
+4. **Action History** - Previous actions taken and their results
 
 ## Coordinate System
 All coordinates are NORMALIZED (0-1) relative to screen dimensions:
 - (0.5, 0.5) = center of screen
 - (0.0, 0.0) = top-left
 - (1.0, 1.0) = bottom-right
-- Typical phone: 1080x1920 or similar
 
-## Action Space
-1. **CLICK/TAP**: Tap at normalized position {"action": "CLICK", "x": 0.5, "y": 0.3}
-2. **DOUBLE_TAP**: Double tap at position {"action": "DOUBLE_TAP", "x": 0.5, "y": 0.3}
-3. **LONG_PRESS**: Long press at position {"action": "LONG_PRESS", "x": 0.5, "y": 0.3, "duration": 1000}
-4. **SWIPE**: Swipe from one position to another {"action": "SWIPE", "x1": 0.5, "y1": 0.7, "x2": 0.5, "y2": 0.3}
-5. **INPUT/TYPE**: Type text at current focus {"action": "TYPE", "text": "Hello"}
-6. **PRESS**: Press a key {"action": "PRESS", "key": "back|home|enter|delete"}
-7. **LAUNCH**: Launch app by package name {"action": "LAUNCH", "package": "com.whatsapp"}
-8. **SCROLL**: Scroll screen {"action": "SCROLL", "direction": "up|down|left|right"}
-9. **WAIT**: Wait for changes {"action": "WAIT", "duration": 2}
-10. **COPY**: Copy text to clipboard {"action": "COPY", "text": "text to copy"}
-11. **FINISHED**: Task completed {"action": "FINISHED"}
-12. **CALL_USER**: Need user help {"action": "CALL_USER", "reason": "explanation"}
+## Tool Set
+1. **STATE/VIEW**: Returns the current UI hierarchy and notifications (automatically provided each turn — no action needed)
+2. **CLICK/TAP**: Tap at normalized position {"action": "CLICK", "x": 0.5, "y": 0.3}
+3. **DOUBLE_TAP**: Double tap at position {"action": "DOUBLE_TAP", "x": 0.5, "y": 0.3}
+4. **LONG_PRESS**: Long press at position {"action": "LONG_PRESS", "x": 0.5, "y": 0.3}
+5. **SWIPE**: Fast swipe from one position to another {"action": "SWIPE", "x1": 0.5, "y1": 0.7, "x2": 0.5, "y2": 0.3}
+6. **DRAG**: Slow, deliberate drag (like swipe but slower) {"action": "DRAG", "x1": 0.5, "y1": 0.7, "x2": 0.5, "y2": 0.3, "duration": 1000}
+7. **INPUT/TYPE**: Type text at the currently focused input field {"action": "TYPE", "text": "Hello world"}
+8. **PRESS**: Press a hardware/system key {"action": "PRESS", "key": "back|home|enter|recent|notifications|power"}
+9. **LAUNCH**: Launch app by package name {"action": "LAUNCH", "package": "com.whatsapp"}
+10. **SCROLL**: Scroll the screen in a direction {"action": "SCROLL", "direction": "up|down|left|right"}
+11. **HOVER**: Move cursor to position without tapping {"action": "HOVER", "x": 0.5, "y": 0.3}
+12. **WAIT**: Wait for UI changes to settle {"action": "WAIT", "duration": 2}
+13. **COPY**: Copy text to clipboard {"action": "COPY", "text": "text to copy"}
+14. **NOTIFICATION**: Read current device notifications {"action": "NOTIFICATION"}
+15. **SHELL**: Execute a shell command (use only when accessibility service is unavailable) {"action": "SHELL", "command": "input tap 500 1000"}
+16. **FINISHED**: Task completed successfully {"action": "FINISHED"}
+17. **CALL_USER**: Need user assistance {"action": "CALL_USER", "reason": "I cannot find the login button"}
 
 ## Common App Package Names
 - WhatsApp: com.whatsapp
@@ -64,22 +69,25 @@ All coordinates are NORMALIZED (0-1) relative to screen dimensions:
 
 ## Output Format
 Return a JSON array with ONE OR MORE actions to perform:
-[{"action": "THOUGHT", "thought": "I see the login button, I should tap it"}, {"action": "CLICK", "x": 0.5, "y": 0.8}]
+[{"action": "THOUGHT", "thought": "I see the login button at (0.5, 0.8), I should tap it"}, {"action": "CLICK", "x": 0.5, "y": 0.8}]
 
 IMPORTANT:
 - Return ONLY valid JSON array
 - Use normalized coordinates (0-1)
+- Use the UI hierarchy bounds to determine precise coordinates instead of guessing
 - If task is complete, include {"action": "FINISHED"}
 - If stuck after multiple attempts, include {"action": "CALL_USER", "reason": "..."}
 - Wait after actions that cause UI changes
-- Include your reasoning in "thought" field before actions
+- Include your reasoning in a "thought" action before actions
 - Be precise with coordinates
 """.trimIndent()
 
     fun sendMessage(
         userMessage: String,
         screenshotBase64: String? = null,
-        actionHistory: String = ""
+        actionHistory: String = "",
+        hierarchyDump: String = "",
+        notifications: String = ""
     ): String? {
         val fullMessage = buildString {
             append(userMessage)
@@ -97,6 +105,12 @@ IMPORTANT:
                     append(fullMessage)
                     if (screenshotBase64 != null) {
                         append("\n\n[Screenshot attached - base64 encoded JPEG image of current screen]")
+                    }
+                    if (hierarchyDump.isNotBlank()) {
+                        append("\n\n## Current UI Hierarchy\n```\n$hierarchyDump\n```")
+                    }
+                    if (notifications.isNotBlank()) {
+                        append("\n\n$notifications")
                     }
                 })
             })
@@ -134,10 +148,11 @@ IMPORTANT:
 
     private fun getModelIdentifier(): String {
         return when {
+            config.modelName.contains("deepseek", ignoreCase = true) -> config.modelName
             config.modelName.contains("Qwen", ignoreCase = true) -> "qwen-3.5"
             config.modelName.contains("MiniMax", ignoreCase = true) -> "minimax-m2.7"
             config.modelName.contains("VL", ignoreCase = true) -> "qwen-vl"
-            else -> "gpt-4"
+            else -> config.modelName // Pass through custom model names
         }
     }
 

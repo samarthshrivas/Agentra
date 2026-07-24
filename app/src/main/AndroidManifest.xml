@@ -4,7 +4,9 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
         android:allowBackup="true"
@@ -13,7 +15,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Agentra"
-        tools:targetApi="34">
+        tools:targetApi="35">
 
         <activity
             android:name=".ui.MainActivity"
@@ -37,6 +39,12 @@
             android:theme="@style/Theme.Agentra"
             android:parentActivityName=".ui.MainActivity" />
 
+        <activity
+            android:name=".ui.TestToolsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Agentra"
+            android:parentActivityName=".ui.SettingsActivity" />
+
         <service
             android:name=".service.AgentAccessibilityService"
             android:exported="false"
@@ -50,14 +58,59 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
+        <!-- Wake Word Detection Service -->
         <service
-            android:name=".service.ScreenshotService"
+            android:name=".service.WakeWordService"
             android:exported="false"
-            android:foregroundServiceType="specialUse"
+            android:foregroundServiceType="microphone"
             tools:ignore="ExportedService">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="screen_capture" />
+                android:value="wake_word_detection" />
+        </service>
+
+        <!-- Default Assistant Service (VoiceInteractionService) -->
+        <service
+            android:name=".service.AssistantService"
+            android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/voice_interaction_service" />
+        </service>
+
+        <!-- Assistant Session Service (required companion to VoiceInteractionService) -->
+        <service
+            android:name=".service.AssistantSessionService"
+            android:exported="false"
+            android:permission="android.permission.BIND_VOICE_INTERACTION" />
+
+        <!-- Assistant Recognition Service (required for VoiceInteractionService validity) -->
+        <service
+            android:name=".service.AssistantRecognitionService"
+            android:exported="false"
+            android:permission="android.permission.BIND_RECOGNITION_SERVICE" />
+
+        <!-- Floating Button Overlay Service -->
+        <service
+            android:name=".service.FloatingPromptService"
+            android:exported="false"
+            android:foregroundServiceType="systemExempted"
+            tools:ignore="ExportedService" />
+
+        <!-- Notification Reader Service -->
+        <service
+            android:name=".hierarchy.NotificationReader"
+            android:exported="false"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
         </service>
 
     </application>

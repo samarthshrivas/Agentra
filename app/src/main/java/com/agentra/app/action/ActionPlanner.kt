@@ -39,6 +39,12 @@ class ActionPlanner {
                 val x2 = obj.get("x2")?.asFloat ?: 0.5f; val y2 = obj.get("y2")?.asFloat ?: 0.3f
                 ActionExecutor.Action(ActionExecutor.ActionType.SWIPE, x = (x1 * 1080).toInt(), y = (y1 * 1920).toInt(), normalizedX = x1, normalizedY = y1, params = mapOf("x1_abs" to (x1 * 1080).toInt(), "y1_abs" to (y1 * 1920).toInt(), "x2_abs" to (x2 * 1080).toInt(), "y2_abs" to (y2 * 1920).toInt()))
             }
+            "DRAG" -> {
+                val x1 = obj.get("x1")?.asFloat ?: 0.5f; val y1 = obj.get("y1")?.asFloat ?: 0.5f
+                val x2 = obj.get("x2")?.asFloat ?: 0.5f; val y2 = obj.get("y2")?.asFloat ?: 0.3f
+                val duration = obj.get("duration")?.asInt ?: 1000
+                ActionExecutor.Action(ActionExecutor.ActionType.DRAG, x = (x1 * 1080).toInt(), y = (y1 * 1920).toInt(), normalizedX = x1, normalizedY = y1, duration = duration, params = mapOf("x1_abs" to (x1 * 1080).toInt(), "y1_abs" to (y1 * 1920).toInt(), "x2_abs" to (x2 * 1080).toInt(), "y2_abs" to (y2 * 1920).toInt()))
+            }
             "INPUT", "TYPE" -> ActionExecutor.Action(ActionExecutor.ActionType.TYPE, text = obj.get("text")?.asString ?: "")
             "PRESS", "ENTER", "BACK" -> ActionExecutor.Action(ActionExecutor.ActionType.PRESS, key = obj.get("key")?.asString ?: "enter")
             "LAUNCH", "OPEN" -> ActionExecutor.Action(ActionExecutor.ActionType.LAUNCH, packageName = obj.get("package")?.asString ?: "")
