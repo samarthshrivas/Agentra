@@ -433,12 +433,6 @@ The LLM communicates actions via a structured JSON format:
 
 ---
 
-## ⚠️ Known Issues
-
-- **Instrumented tests** are skipped on API 37 (Android 15 preview) emulators due to Espresso `InputManagerEventInjectionStrategy` incompatibility — gracefully skipped via `Assume.assumeTrue(Build.VERSION.SDK_INT < 37)`
-- **Wake word** uses cloud-based `SpeechRecognizer` (requires internet); offline engine planned
-- **Screenshot** resolution assumes 1080×1920 baseline for coordinate normalization
-
 ---
 
 ## 🤝 Contributing
